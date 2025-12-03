@@ -7,6 +7,7 @@ import Courses from './pages/Courses';
 import MyEnrollments from './pages/MyEnrollments';
 import Grades from './pages/Grades';
 import UploadGrades from './pages/UploadGrades';
+import Home from './components/Home';
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
       <Navbar />
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/" element={<Home />} />
         <Route
           path="/dashboard"
           element={
