@@ -1,62 +1,118 @@
-import { mockCourses, mockEnrollments } from './mockData';
+import axios from 'axios';
+import { API_BASE_URL } from '../config';
+import { getToken } from '../utils/auth';
+
+// Create axios instance with base configuration
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+
+// Add request interceptor to include JWT token
+api.interceptors.request.use(
+  (config) => {
+    const token = getToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Add response interceptor to handle MongoDB _id to id conversion
+api.interceptors.response.use(
+  (response) => {
+    // Convert _id to id for consistency with frontend
+    if (response.data) {
+      if (Array.isArray(response.data)) {
+        response.data = response.data.map(item => convertIds(item));
+      } else if (typeof response.data === 'object') {
+        response.data = convertIds(response.data);
+      }
+    }
+    return response;
+  },
+  (error) => {
+    // Handle errors
+    const message = error.response?.data?.error || error.response?.data?.message || error.message;
+    return Promise.reject(new Error(message));
+  }
+);
+
+// Helper function to convert _id to id recursively
+const convertIds = (obj) => {
+  if (!obj || typeof obj !== 'object') return obj;
+
+  const newObj = { ...obj };
+
+  // Convert _id to id
+  if (newObj._id) {
+    newObj.id = newObj._id;
+    delete newObj._id;
+  }
+
+  // Convert course_id._id if it exists (nested object)
+  if (newObj.course_id && typeof newObj.course_id === 'object' && newObj.course_id._id) {
+    newObj.course_id = newObj.course_id._id;
+  }
+
+  // Recursively convert nested objects
+  Object.keys(newObj).forEach(key => {
+    if (typeof newObj[key] === 'object' && newObj[key] !== null && !Array.isArray(newObj[key])) {
+      newObj[key] = convertIds(newObj[key]);
+    }
+  });
+
+  return newObj;
+};
 
 /**
- * Mock getCourses function - simulates API call with 1 second delay
+ * Get all courses with enrollment counts
  * @returns {Promise<Array>} Array of course objects
  */
 export const getCourses = async () => {
-  // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 1000));
-
-  // Return a copy of mock courses to prevent direct mutations
-  return JSON.parse(JSON.stringify(mockCourses));
+  try {
+    const response = await api.get('/courses');
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
 };
 
 /**
- * Mock enrollCourse function - simulates enrollment API call
- * @param {number} courseId - ID of the course to enroll in
- * @param {number} studentId - ID of the student enrolling
- * @returns {Promise<Object>} Success response with message
+ * Enroll in a course
+ * @param {string} courseId - MongoDB ObjectId of the course
+ * @param {number} studentId - Numeric ID of the student (not used, comes from JWT)
+ * @returns {Promise<Object>} Enrollment response
  */
 export const enrollCourse = async (courseId, studentId) => {
-  // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 1000));
-
-  // Find the course
-  const course = mockCourses.find(c => c.id === courseId);
-
-  if (!course) {
-    throw new Error('Course not found');
+  try {
+    const response = await api.post(`/courses/${courseId}/enroll`);
+    return {
+      success: true,
+      message: response.data.message || 'Enrolled successfully',
+      enrollment: response.data.enrollment
+    };
+  } catch (error) {
+    throw error;
   }
-
-  // Check if course is full
-  if (course.enrolled_count >= course.capacity) {
-    throw new Error('Course is full');
-  }
-
-  // Simulate successful enrollment
-  // In a real app, this would update the database
-  course.enrolled_count += 1;
-
-  return {
-    success: true,
-    message: `Successfully enrolled in ${course.name}`,
-    course: course
-  };
 };
 
 /**
- * Mock getMyEnrollments function - simulates fetching student enrollments
- * @param {number} studentId - ID of the student
+ * Get student's enrollments
+ * @param {number} studentId - Numeric ID of the student
  * @returns {Promise<Array>} Array of enrollment objects
  */
 export const getMyEnrollments = async (studentId) => {
-  // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 1000));
-
-  // Get enrollments for this student
-  const enrollments = mockEnrollments[studentId] || [];
-
-  // Return a copy to prevent mutations
-  return JSON.parse(JSON.stringify(enrollments));
+  try {
+    const response = await api.get(`/enrollments/student/${studentId}`);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
 };

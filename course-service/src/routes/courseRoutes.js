@@ -8,7 +8,10 @@ router.get('/courses', verifyToken, courseController.getAllCourses);
 router.get('/courses/:id', verifyToken, courseController.getCourseById);
 
 // Student-only routes
-router.post('/courses/:courseId/enroll', verifyToken, requireStudent, courseController.enrollInCourse);
+router.post('/courses/:id/enroll', verifyToken, requireStudent, courseController.enrollInCourse);
 router.get('/my-enrollments', verifyToken, requireStudent, courseController.getMyEnrollments);
+
+// Get enrollments for a specific student (requires authentication only)
+router.get('/enrollments/student/:id', verifyToken, courseController.getStudentEnrollments);
 
 module.exports = router;
