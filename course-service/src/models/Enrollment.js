@@ -23,6 +23,10 @@ const enrollmentSchema = new mongoose.Schema({
     type: String,
     enum: ['active', 'dropped', 'completed'],
     default: 'active'
+  },
+  grade: { 
+    type: String, 
+    default: null 
   }
 }, {
   timestamps: true

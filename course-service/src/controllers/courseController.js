@@ -281,11 +281,50 @@ const getStudentEnrollments = async (req, res) => {
   }
 };
 
+// Upload a grade (Faculty only)
+const uploadGrade = async (req, res) => {
+  const { studentId, courseId, grade } = req.body;
+  try {
+    const updated = await Enrollment.findOneAndUpdate(
+      { studentId: studentId, course: courseId },
+      { grade: grade, status: 'completed' },
+      { new: true }
+    );
+    if (!updated) return res.status(404).json({ error: "Enrollment not found" });
+    res.json({ message: "Grade uploaded successfully", data: updated });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get grades (Student only)
+const getMyGrades = async (req, res) => {
+  try {
+    const enrollments = await Enrollment.find({ 
+      studentId: req.user.id, 
+      grade: { $ne: null } 
+    }).populate('course', 'name');
+    
+    // Format to match what frontend expects
+    const grades = enrollments.map(e => ({
+      id: e._id,
+      course_name: e.course.name,
+      grade: e.grade,
+      uploaded_at: e.updatedAt
+    }));
+    res.json(grades);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = {
   getAllCourses,
   getCourses: getAllCourses,  // Alias for spec compliance
   getCourseById,
   enrollInCourse,
   getMyEnrollments,
-  getStudentEnrollments
+  getStudentEnrollments,
+  uploadGrade,
+  getMyGrades
 };

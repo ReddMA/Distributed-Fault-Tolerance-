@@ -59,7 +59,7 @@ function UploadGrades() {
       setMessage({ type: '', text: '' });
 
       const response = await uploadGrade(
-        parseInt(selectedCourse),
+        selectedCourse,
         parseInt(selectedStudent),
         grade.trim(),
         user.id
