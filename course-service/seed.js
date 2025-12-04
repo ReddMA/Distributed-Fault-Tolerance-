@@ -11,49 +11,55 @@
 
 const mongoose = require('mongoose');
 const Course = require('./src/models/Course');
+const Enrollment = require('./src/models/Enrollment');
 const connectDB = require('./src/config/database');
 
 /**
  * Sample Courses Data
  *
  * These courses will be inserted into the database.
- * enrolled_count is set for demonstration purposes.
+ * Enrollment counts are created separately as actual enrollment documents.
  */
 const sampleCourses = [
   {
     name: 'Web Development',
     description: 'Learn HTML, CSS, JavaScript',
-    capacity: 30,
-    enrolled_count: 25
+    capacity: 30
   },
   {
     name: 'Data Structures',
     description: 'Algorithms and Data Structures',
-    capacity: 25,
-    enrolled_count: 20
+    capacity: 25
   },
   {
     name: 'Database Systems',
     description: 'SQL and NoSQL databases',
-    capacity: 20,
-    enrolled_count: 15
+    capacity: 20
   },
   {
     name: 'Mobile Development',
     description: 'iOS and Android apps',
-    capacity: 25,
-    enrolled_count: 22
+    capacity: 25
   }
 ];
+
+/**
+ * Enrollment Counts
+ *
+ * Defines how many students should be enrolled in each course.
+ * These numbers will be used to create fake enrollment records.
+ */
+const enrollmentCounts = [25, 20, 15, 22];
 
 /**
  * Seed Database Function
  *
  * This async function:
  * 1. Connects to MongoDB
- * 2. Clears existing courses
+ * 2. Clears existing courses and enrollments
  * 3. Inserts sample courses
- * 4. Closes connection
+ * 4. Creates sample enrollments
+ * 5. Closes connection
  */
 const seedDatabase = async () => {
   try {
@@ -61,23 +67,67 @@ const seedDatabase = async () => {
     console.log('🔄 Connecting to MongoDB...');
     await connectDB();
 
-    // Step 2: Clear existing courses
-    console.log('🗑️  Clearing existing courses...');
-    const deleteResult = await Course.deleteMany({});
-    console.log(`✓ Deleted ${deleteResult.deletedCount} existing courses`);
+    // Step 2: Clear existing data
+    console.log('🗑️  Clearing existing courses and enrollments...');
+    const deletedCourses = await Course.deleteMany({});
+    const deletedEnrollments = await Enrollment.deleteMany({});
+    console.log(`✓ Deleted ${deletedCourses.deletedCount} courses and ${deletedEnrollments.deletedCount} enrollments`);
 
     // Step 3: Insert sample courses
     console.log('📝 Inserting sample courses...');
     const insertedCourses = await Course.insertMany(sampleCourses);
-    console.log(`✓ Successfully inserted ${insertedCourses.length} courses:`);
+    console.log(`✓ Successfully inserted ${insertedCourses.length} courses`);
 
-    // Display inserted courses
-    insertedCourses.forEach((course, index) => {
-      console.log(`   ${index + 1}. ${course.name} (Capacity: ${course.capacity}, Enrolled: ${course.enrolled_count})`);
-    });
+    // Step 4: Create sample enrollments
+    console.log('👥 Creating sample enrollments...');
+    let totalEnrollments = 0;
 
-    // Step 4: Close database connection
+    for (let i = 0; i < insertedCourses.length; i++) {
+      const course = insertedCourses[i];
+      const enrollmentCount = enrollmentCounts[i];
+
+      // Create enrollment documents for this course
+      const enrollments = [];
+      for (let j = 0; j < enrollmentCount; j++) {
+        // Create unique student IDs: course 0 gets students 1-25, course 1 gets 101-120, etc.
+        const studentId = (i * 100) + j + 1;
+
+        // Random enrollment date within the last 30 days
+        const daysAgo = Math.floor(Math.random() * 30);
+        const enrolledAt = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
+
+        enrollments.push({
+          studentId: studentId,
+          course: course._id,
+          status: 'active',
+          enrolledAt: enrolledAt
+        });
+      }
+
+      // Insert all enrollments for this course
+      if (enrollments.length > 0) {
+        await Enrollment.insertMany(enrollments);
+        totalEnrollments += enrollments.length;
+        console.log(`   ✓ ${course.name}: ${enrollmentCount} enrollments created`);
+      }
+    }
+
+    console.log(`✓ Successfully created ${totalEnrollments} total enrollments\n`);
+
+    // Step 5: Display summary with actual counts
+    console.log('📊 Final Course Summary:');
+    for (let i = 0; i < insertedCourses.length; i++) {
+      const course = insertedCourses[i];
+      const enrolledCount = enrollmentCounts[i];
+      const availableSlots = course.capacity - enrolledCount;
+
+      console.log(`   ${i + 1}. ${course.name}`);
+      console.log(`      Capacity: ${course.capacity} | Enrolled: ${enrolledCount} | Available: ${availableSlots}`);
+    }
+
+    // Step 6: Close database connection
     console.log('\n✅ Database seeding completed successfully!');
+    console.log('MongoDB disconnected');
     await mongoose.connection.close();
     console.log('🔌 Database connection closed');
 
